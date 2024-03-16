@@ -1,0 +1,44 @@
+---
+title: "Data Cleaning"
+author: "Helitha Dharmadasa - z5451805"
+date: "2024-02-23"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, tidy=TRUE, dpi=360)
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+```{r read}
+superlife_df <- read_csv("../Data/Processed Data/CLEANED_2024-srcsc-superlife-inforce-dataset.csv")
+head(superlife_df)
+summary(superlife_df)
+```
+
+```{r}
+plot_df <- superlife_df %>%
+  filter(Cause.of.Death.Description != "NA") %>%
+  mutate(Cause.of.Death.Description = ifelse(nchar(Cause.of.Death.Description) > 20,
+            paste0(str_sub(Cause.of.Death.Description, end = 20), "..."), Cause.of.Death.Description)) %>%
+  group_by(Cause.of.Death.Description) %>%
+  summarise(count = n())
+
+ggplot(plot_df, aes(x = reorder(Cause.of.Death.Description, desc(count)), y = count)) +
+  geom_col(fill = "blue", color = "black") +
+  labs(title = "Histogram of Cause of Death",
+       x = "Cause of Death",
+       y = "Count") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5))
+```
+
+
+
+
+
+

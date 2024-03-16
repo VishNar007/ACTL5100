@@ -1,0 +1,59 @@
+---
+title: "Data Cleaning"
+author: "Helitha Dharmadasa - z5451805"
+date: "2024-02-23"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, tidy=TRUE, dpi=360)
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+```{r read}
+superlife_df <- read_csv("../Data/Processed Data/CLEANED_2024-srcsc-superlife-inforce-dataset.csv")
+head(superlife_df)
+summary(superlife_df)
+```
+```{r}
+max_year <- max(superlife_df$Issue.year)
+
+superlife_df <- superlife_df %>%
+  filter(is.na(Lapse.Indicator)) %>%
+  mutate(Max.age = coalesce(Age.at.Death, max_year - Issue.year + Issue.age))
+
+max_obs <- nrow(superlife_df)
+
+superlife_df
+```
+
+```{r}
+mortality_df <- superlife_df %>%
+  select(Max.age) %>%
+  rowwise() %>%
+  mutate(Age = list(seq(1, Max.age))) %>%
+  unnest(c(Age)) %>%
+  group_by(Age) %>%
+  summarise(count = n()) %>%
+  mutate(mortality = 1 - (count / max_obs))
+
+mortality_df
+```
+
+
+```{r}
+write_csv(mortality_df, "../Data/Processed Data/Superlife-inforce-mortality-table.csv")
+```
+
+
+
+
+
+
+
+
+

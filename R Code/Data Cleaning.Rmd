@@ -1,0 +1,51 @@
+---
+title: "Data Cleaning"
+author: "Helitha Dharmadasa - z5451805"
+date: "2024-02-23"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, tidy=TRUE, dpi=360, fig.width=7)
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+```{r read}
+superlife_df <- read_csv("../Data/Case Study Data/2024-srcsc-superlife-inforce-dataset.csv", skip=3)
+head(superlife_df)
+summary(superlife_df)
+```
+
+```{r}
+superlife_df <- superlife_df %>%
+  mutate(Lapse.Indicator = ifelse(Lapse.Indicator == "Y", 1, Lapse.Indicator),
+         Age.at.Death = Year.of.Death - Issue.year + Issue.age)
+```
+
+
+
+
+```{r read}
+cause_of_death_map <- read_csv("../Data/External Data/superlife_inforce_causes_of_death.csv")
+cause_of_death_map
+```
+```{r}
+superlife_df <- left_join(superlife_df, cause_of_death_map, by=c("Cause.of.Death" = "Unique.Cause.of.Death"))
+```
+
+```{r}
+superlife_df <- superlife_df %>% rename("Cause.of.Death.Description" = "Description")
+```
+
+```{r}
+write_csv(superlife_df, "../Data/Processed Data/CLEANED_2024-srcsc-superlife-inforce-dataset.csv")
+```
+
+
+
+
+
