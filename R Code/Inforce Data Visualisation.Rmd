@@ -59,6 +59,7 @@ hist + geom_vline(xintercept = mean, color = "red", linetype = "dashed", size = 
 ```
 ```{r}
 neoplasm_df <- neoplasm_df %>%
+  filter(Age.at.Death >= 50) %>%
   mutate(Weight = count / sum(count)) %>%
   select (Age.at.Death, Weight)
 
@@ -86,7 +87,7 @@ mean_m <- means %>%
   pull(mean)
 
 hist <- ggplot(neoplasm_df, aes(x = Age.at.Death, y = count, fill=Sex)) +
-  geom_col(color = "black") +
+  geom_col(color = "black", alpha=0.6) +
   labs(title = "Histogram of Cause of Death",
        x = "Cause of Death",
        y = "Count") + 
