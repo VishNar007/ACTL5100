@@ -2,6 +2,8 @@
 
 
 ## File Tree:
+
+```
 ├── Case Study Documents
 │   ├── 2024-srcsc-questions-answers.pdf
 │   ├── srcsc-2024-case-study.pdf
@@ -27,3 +29,4 @@
 │   └── Inforce Mortality Modelling.Rmd
 ├── README.md
 └── .gitignore
+```
