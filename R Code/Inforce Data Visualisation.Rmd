@@ -97,6 +97,15 @@ hist <- ggplot(neoplasm_df, aes(x = Age.at.Death, y = count, fill=Sex)) +
 hist + geom_vline(xintercept = mean_f, color = "orange", linetype = "dashed", size = 1) +
   geom_vline(xintercept = mean_m, color = "turquoise", linetype = "dashed", size = 1) 
 ```
+```{r}
+smokers <- superlife_df %>%
+  filter(Smoker.Status == "S") %>%
+  nrow()
+
+smokers / nrow(superlife_df)
+
+```
+
 
 
 
