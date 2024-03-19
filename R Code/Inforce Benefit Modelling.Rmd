@@ -76,6 +76,7 @@ debug_mat  <- matrix(0, nrow = 120, ncol = 120)
 for (starting_age in 1:119) {
 
   APV = 0
+  annuity_due = 0
   
   # Rolling window of policy dur or capped at life table limits (truncation error?)
   age_max <- min(starting_age + policy_dur, 119)
@@ -94,7 +95,7 @@ for (starting_age in 1:119) {
     debug_mat[starting_age, death_age] = v^(t+1) * tpx * qxt
     
     APV = APV + v^(t+1) * tpx * qxt     #Paid out EOY of Death
-    annuity_due =  v^(t) * tpx          #Paid out SOY of every year alive
+    annuity_due =  annuity_due + v^(t) * tpx          #Paid out SOY of every year alive
   }
   
   output_df$EPV_benefit[starting_age] = APV
