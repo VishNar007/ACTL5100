@@ -38,8 +38,9 @@ mortality_df <- superlife_df %>%
   mutate(Age = list(seq(1, Max.age))) %>%
   unnest(c(Age)) %>%
   group_by(Age) %>%
-  summarise(count = n()) %>%
-  mutate(mortality = 1 - (count / max_obs))
+  summarise(lx = n()) %>%
+  mutate(mortality_rate = 1 - ifelse(is.na(lead(lx)), 0, (lead(lx) / lx)))
+  #mutate(mortality = 1 - (count / max_obs))
 
 mortality_df
 ```
