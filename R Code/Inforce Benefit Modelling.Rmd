@@ -55,52 +55,6 @@ mortality_df
 # 2. Verify tpx and q(x+t) and APV values are correct (Use debug matrix, calc manually)
 # 3. Sensitivity Analysis (Notes: Interest rates, Inflation, Mortality)
 # 4. Adjust for m-thly? Is this worth doing even
-
-
-policy_dur <- 120
-
-v = 1 / (1+0.05)
-
-output_df <- tibble(age = 1:120, 
-                    EPV_benefit = rep(0, 120),
-                    EPV_expense = rep(0, 120))
-
-debug_mat  <- matrix(0, nrow = 120, ncol = 120)
-
-# Ages 1-119
-# Note: 119 because we don't have Age 121 in life table for 120 calc.
-for (starting_age in 1:119) {
-
-  APV = 0
-  annuity_due = 0
-  
-  # Rolling window of policy dur or capped at life table limits (truncation error?)
-  age_max <- min(starting_age + policy_dur, 119)
-  
-  for (death_age in starting_age:age_max) {
-    
-    t = death_age - starting_age
-    
-    #P(starting age is alive until death age)
-    tpx = mortality_df$lx[death_age] / mortality_df$lx[starting_age]
-    
-    #P(death age dies in the next year)
-    qxt = 1 - (mortality_df$lx[death_age+1] / mortality_df$lx[death_age])
-
-    #debug
-    debug_mat[starting_age, death_age] = v^(t+1) * tpx * qxt
-    
-    APV = APV + v^(t+1) * tpx * qxt     #Paid out EOY of Death
-    annuity_due =  annuity_due + v^(t) * tpx          #Paid out SOY of every year alive
-  }
-  
-  output_df$EPV_benefit[starting_age] = APV
-  output_df$EPV_expense[starting_age] = annuity_due
-} 
-
-
-
-
 ```
 
 
@@ -113,8 +67,11 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
   v = 1 / (1+real_rate)
   
   output_df <- tibble(age = 1:120, 
-                      EPV_benefit = rep(0, 120),
-                      EPV_expense = rep(0, 120))
+                      EPV_single= rep(0, 120),
+                      EPV_annuity_due = rep(0, 120),
+                      EPV_single_18 = rep(0, 120),
+                      EPV_annuity_due_18 = rep(0, 120),
+                      EPV_annuity_due_50 = rep(0, 120))
   
   #debug_mat  <- matrix(0, nrow = 120, ncol = 120)
   
@@ -122,8 +79,11 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
   # Note: 119 because we don't have Age 121 in life table for 120 calc.
   for (starting_age in 1:119) {
   
-    APV = 0
+    single = 0
     annuity_due = 0
+    single_18 = 0
+    annuity_due_18 = 0
+    annuity_due_50 = 0
     
     # Rolling window of policy dur or capped at life table limits (truncation error?)
     age_max <- min(starting_age + policy_duration, 119)
@@ -141,12 +101,27 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
       #debug
       #debug_mat[starting_age, death_age] = v^(t+1) * tpx * qxt
       
-      APV = APV + v^(t+1) * tpx * qxt     #Paid out EOY of Death
+      single = single + v^(t+1) * tpx * qxt     #Paid out EOY of Death
       annuity_due =  annuity_due + v^(t) * tpx          #Paid out SOY of every year alive
+      
+      if (death_age >= 18) {
+        single_18 = single_18 + v^(t+1) * tpx * qxt
+        annuity_due_18 = annuity_due_18 + v^(t) * tpx   
+      }
+      
+      if (death_age >= 50) {
+        annuity_due_50 = annuity_due_50 + v^(t) * tpx 
+      }
+
+      
     }
     
-    output_df$EPV_benefit[starting_age] = APV
-    output_df$EPV_expense[starting_age] = annuity_due
+    output_df$EPV_single[starting_age] = single
+    output_df$EPV_annuity_due[starting_age] = annuity_due
+    output_df$EPV_single_18[starting_age] = single_18
+    output_df$EPV_annuity_due_18[starting_age] = annuity_due_18
+    output_df$EPV_annuity_due_50[starting_age] = annuity_due_50
+
   } 
   
   return(output_df)
@@ -158,11 +133,11 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
 interest_rate <- mean(rate_df$`1-yr Risk Free Annual Spot Rate`)
 inflation_rate <- mean(rate_df$Inflation)
 
-test <- benefit_model(120, mortality_df, interest_rate, inflation_rate)
+EPV_df <- benefit_model(20, mortality_df, interest_rate, inflation_rate)
 ```
 
 ```{r}
-
+EPV_df
 ```
 
 
