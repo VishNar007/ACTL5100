@@ -67,6 +67,11 @@ write_csv(neoplasm_df, "../Data/Processed Data/Neoplasm_Mortality_Loading.csv")
 ```
 
 ```{r}
+sum(neoplasm_df$Weight)
+```
+
+
+```{r}
 neoplasm_df <- superlife_df %>%
   filter(Cause.of.Death.Description == "Neoplasms") %>%
   group_by(Sex, Age.at.Death) %>%

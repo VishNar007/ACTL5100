@@ -5,7 +5,6 @@ date: "2024-02-23"
 output: html_document
 ---
 
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, tidy=TRUE, dpi=360)
 ```
@@ -15,6 +14,10 @@ library(tidyverse)
 library(readxl)
 ```
 
+```{r}
+superlife_df <- read_csv("../Data/Processed Data/CLEANED_2024-srcsc-superlife-inforce-dataset.csv")
+```
+
 ```{r read}
 rate_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-economic-data.xlsx", skip=10)
 ```
@@ -22,21 +25,17 @@ rate_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-economic-data.
 ```{r}
 mortality_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-mortality-table.xlsx", skip = 13)
 
+adj_mortality_df <- mortality_df
+
+```
+
+```{r}
 mortality_df <- mortality_df %>% mutate(survival_rate = 1 - `Mortality Rate`,
                                         lx = cumprod(survival_rate) * 100000)
 
-mortality_df
-
-```
-```{r}
-
-
-
-```
-
-
-```{r}
-
+adj_mortality_df$`Mortality Rate` <- 0.9 * adj_mortality_df$`Mortality Rate`
+adj_mortality_df <- adj_mortality_df %>% mutate(survival_rate = 1 - `Mortality Rate`,
+                                        lx = cumprod(survival_rate) * 100000)
 ```
 
 ```{r}
@@ -57,8 +56,6 @@ mortality_df
 # 4. Adjust for m-thly? Is this worth doing even
 ```
 
-
-
 ```{r}
 benefit_model <- function(policy_duration, mortality_table, interest_rate, inflation_rate) {
 
@@ -70,6 +67,7 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
                       EPV_single= rep(0, 120),
                       EPV_annuity_due = rep(0, 120),
                       EPV_single_18 = rep(0, 120),
+                      EPV_single_50 = rep(0, 120),
                       EPV_annuity_due_18 = rep(0, 120),
                       EPV_annuity_due_50 = rep(0, 120))
   
@@ -82,6 +80,7 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
     single = 0
     annuity_due = 0
     single_18 = 0
+    single_50 = 1
     annuity_due_18 = 0
     annuity_due_50 = 0
     
@@ -105,20 +104,28 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
       annuity_due =  annuity_due + v^(t) * tpx          #Paid out SOY of every year alive
       
       if (death_age >= 18) {
+        #Paid on death if older than 18
         single_18 = single_18 + v^(t+1) * tpx * qxt
+        
+        #Paid SOY yearly starting at 18
         annuity_due_18 = annuity_due_18 + v^(t) * tpx   
       }
       
       if (death_age >= 50) {
+        #Paid SOY yearly starting at 50
         annuity_due_50 = annuity_due_50 + v^(t) * tpx 
       }
 
-      
+      if (death_age == 50) {
+        #Paid at 50 if alive at 50
+        single_50 = v^(t) * tpx 
+      }
     }
     
     output_df$EPV_single[starting_age] = single
     output_df$EPV_annuity_due[starting_age] = annuity_due
     output_df$EPV_single_18[starting_age] = single_18
+    output_df$EPV_single_50[starting_age] = single_50
     output_df$EPV_annuity_due_18[starting_age] = annuity_due_18
     output_df$EPV_annuity_due_50[starting_age] = annuity_due_50
 
@@ -128,22 +135,54 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
 }
 ```
 
-
 ```{r}
 interest_rate <- mean(rate_df$`1-yr Risk Free Annual Spot Rate`)
 inflation_rate <- mean(rate_df$Inflation)
 
-EPV_df <- benefit_model(20, mortality_df, interest_rate, inflation_rate)
+T20_EPV_df <- benefit_model(20, mortality_df, interest_rate, inflation_rate) %>%
+  mutate(EPV_single_adj = benefit_model(20, adj_mortality_df, interest_rate, inflation_rate)$EPV_single)
+
+SWPL_EPV_df <- benefit_model(120, mortality_df, interest_rate, inflation_rate) %>%
+    mutate(EPV_single_adj = benefit_model(120, adj_mortality_df, interest_rate, inflation_rate)$EPV_single)
 ```
 
 ```{r}
-EPV_df
+T20_FV <- superlife_df %>%
+  filter(Policy.type == "T20") %>%
+  summarise(Mean=mean(Face.amount)) %>%
+  pull(Mean)
+
+SPWL_FV <- superlife_df %>%
+  filter(Policy.type == "SPWL") %>%
+  summarise(Mean=mean(Face.amount)) %>%
+  pull(Mean)
+
 ```
 
+```{r}
+T20_expense_df <- tibble(Age = T20_EPV_df$age,
+                     smoking = T20_EPV_df$EPV_single_50 * 2065,
+                     screening = T20_EPV_df$EPV_annuity_due_50 * 65,
+                     fitness =  T20_EPV_df$EPV_annuity_due_18 * 18,
+                     safety = T20_EPV_df$EPV_annuity_due_18 * 12.5)
 
+SPWL_expense_df <- tibble(Age = SWPL_EPV_df$age,
+                     smoking = SWPL_EPV_df$EPV_single_50 * 2065,
+                     screening = SWPL_EPV_df$EPV_annuity_due_50 * 65,
+                     fitness =  SWPL_EPV_df$EPV_annuity_due_18 * 18,
+                     safety = SWPL_EPV_df$EPV_annuity_due_18 * 12.5)
 
-
-
-
-
-
+benefit_df <- tibble(Age = SWPL_EPV_df$age,
+                     T20_baseline = T20_EPV_df$EPV_single * T20_FV,
+                     T20_intervention = T20_EPV_df$EPV_single_adj * T20_FV + 
+                       T20_expense_df$smoking + 
+                       T20_expense_df$screening + 
+                       T20_expense_df$fitness + 
+                       T20_expense_df$safety,
+                     SPWL_baseline = SWPL_EPV_df$EPV_single * SPWL_FV,
+                     SWPL_intervention= SWPL_EPV_df$EPV_single_adj * SPWL_FV + 
+                       SPWL_expense_df$smoking + 
+                       SPWL_expense_df$screening + 
+                       SPWL_expense_df$fitness + 
+                       SPWL_expense_df$safety)
+```
