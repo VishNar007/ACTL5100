@@ -190,4 +190,8 @@ benefit_df <- tibble(Age = SWPL_EPV_df$age,
                        SPWL_expense_df$screening + 
                        SPWL_expense_df$fitness + 
                        SPWL_expense_df$safety))
+
+benefit_df <- benefit_df %>%
+  mutate(T20_profit_flag = ifelse(T20_intervention < T20_baseline, "Profit", "Loss"),
+         SWPL_profit_flag = ifelse(SWPL_intervention < SPWL_baseline, "Profit", "Loss"))
 ```
