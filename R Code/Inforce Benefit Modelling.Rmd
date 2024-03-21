@@ -25,17 +25,16 @@ rate_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-economic-data.
 ```{r}
 mortality_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-mortality-table.xlsx", skip = 13)
 
-adj_mortality_df <- mortality_df
+adj_mortality_df <- read_excel("../Data/Processed Data/average_mortality_table.xlsx")
 
 ```
 
 ```{r}
 mortality_df <- mortality_df %>% mutate(survival_rate = 1 - `Mortality Rate`,
-                                        lx = cumprod(survival_rate) * 100000)
+                                        lx = cumprod(survival_rate))
 
-adj_mortality_df$`Mortality Rate` <- 0.9 * adj_mortality_df$`Mortality Rate`
-adj_mortality_df <- adj_mortality_df %>% mutate(survival_rate = 1 - `Mortality Rate`,
-                                        lx = cumprod(survival_rate) * 100000)
+adj_mortality_df <- adj_mortality_df %>% mutate(survival_rate = 1 - new_mortality,
+                                        lx = cumprod(survival_rate))
 ```
 
 ```{r}
@@ -80,7 +79,7 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
     single = 0
     annuity_due = 0
     single_18 = 0
-    single_50 = 1
+    single_50 = 0
     annuity_due_18 = 0
     annuity_due_50 = 0
     
@@ -116,9 +115,11 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
         annuity_due_50 = annuity_due_50 + v^(t) * tpx 
       }
 
-      if (death_age == 50) {
+      if (death_age == 27) {
         #Paid at 50 if alive at 50
         single_50 = v^(t) * tpx 
+      } else if (starting_age > 27 & starting_age <= 88) {
+        single_50 = 1
       }
     }
     
@@ -160,29 +161,33 @@ SPWL_FV <- superlife_df %>%
 ```
 
 ```{r}
+engagement_rate = 0.25
+
+
 T20_expense_df <- tibble(Age = T20_EPV_df$age,
-                     smoking = T20_EPV_df$EPV_single_50 * 2065,
+                     smoking = T20_EPV_df$EPV_single_50 * 2065 * 0.18,
                      screening = T20_EPV_df$EPV_annuity_due_50 * 65,
                      fitness =  T20_EPV_df$EPV_annuity_due_18 * 18,
                      safety = T20_EPV_df$EPV_annuity_due_18 * 12.5)
 
 SPWL_expense_df <- tibble(Age = SWPL_EPV_df$age,
-                     smoking = SWPL_EPV_df$EPV_single_50 * 2065,
+                     smoking = SWPL_EPV_df$EPV_single_50 * 2065 * 0.18,
                      screening = SWPL_EPV_df$EPV_annuity_due_50 * 65,
                      fitness =  SWPL_EPV_df$EPV_annuity_due_18 * 18,
                      safety = SWPL_EPV_df$EPV_annuity_due_18 * 12.5)
 
 benefit_df <- tibble(Age = SWPL_EPV_df$age,
                      T20_baseline = T20_EPV_df$EPV_single * T20_FV,
-                     T20_intervention = T20_EPV_df$EPV_single_adj * T20_FV + 
-                       T20_expense_df$smoking + 
+                     T20_intervention = ((1-engagement_rate) * T20_EPV_df$EPV_single + engagement_rate * T20_EPV_df$EPV_single_adj) * T20_FV + 
+                       engagement_rate * (T20_expense_df$smoking + 
                        T20_expense_df$screening + 
                        T20_expense_df$fitness + 
-                       T20_expense_df$safety,
+                       T20_expense_df$safety),
+                     
                      SPWL_baseline = SWPL_EPV_df$EPV_single * SPWL_FV,
-                     SWPL_intervention= SWPL_EPV_df$EPV_single_adj * SPWL_FV + 
-                       SPWL_expense_df$smoking + 
+                     SWPL_intervention = ((1-engagement_rate) * SWPL_EPV_df$EPV_single + engagement_rate * SWPL_EPV_df$EPV_single_adj) * SPWL_FV + 
+                       engagement_rate * (SPWL_expense_df$smoking + 
                        SPWL_expense_df$screening + 
                        SPWL_expense_df$fitness + 
-                       SPWL_expense_df$safety)
+                       SPWL_expense_df$safety))
 ```
