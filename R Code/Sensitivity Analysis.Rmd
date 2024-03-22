@@ -2,7 +2,9 @@
 title: "Sensitivity Analysis"
 author: "Nikhil Alex - z5451383"
 date: "2024-03-21"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 ```{r, message=FALSE}
 library(tidyverse)
@@ -10,15 +12,15 @@ library(readxl)
 ```
 
 ```{r read}
-benefit_df <- read_csv("../Data/Processed Data/Benefit_Modelling.csv")
+superlife_df <- read_csv("../Data/Processed Data/CLEANED_2024-srcsc-superlife-inforce-dataset.csv")
 rate_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-economic-data.xlsx", skip=10)
+mortality_df <- read_csv("../Data/Processed Data/mortality_baseline.csv")
+adj_mortality_df <- read_csv("../Data/Processed Data/mortality_adjusted.csv")
 ```
-
 ```{r}
-# Original parameter values
-orig_inflation_rate <- mean(rate_df$Inflation)
-orig_interest_rate <- mean(rate_df$`1-yr Risk Free Annual Spot Rate`)
-orig_engagement_rate <- 0.25
+interest_rate <- mean(rate_df$`1-yr Risk Free Annual Spot Rate`)
+inflation_rate <- mean(rate_df$Inflation)
+engagement_rate = 0.25
 ```
 
 ```{r}
@@ -105,17 +107,6 @@ orig_engagement_rate <- 0.25
 ```
 
 ```{r}
-interest_rate <- mean(rate_df$`1-yr Risk Free Annual Spot Rate`)
-inflation_rate <- mean(rate_df$Inflation)
-
-T20_EPV_df <- benefit_model(20, mortality_df, interest_rate, inflation_rate) %>%
-  mutate(EPV_single_adj = benefit_model(20, adj_mortality_df, interest_rate, inflation_rate)$EPV_single)
-
-SWPL_EPV_df <- benefit_model(120, mortality_df, interest_rate, inflation_rate) %>%
-    mutate(EPV_single_adj = benefit_model(120, adj_mortality_df, interest_rate, inflation_rate)$EPV_single)
-```
-
-```{r}
 T20_FV <- superlife_df %>%
   filter(Policy.type == "T20") %>%
   summarise(Mean=mean(Face.amount)) %>%
@@ -133,11 +124,11 @@ SPWL_FV <- superlife_df %>%
 sens_levels <- c(0.001, 0.01, 0.1, -0.001, -0.01, -0.1) # 0.1%, 1%, and 10% differences
 
 
-sens_results <- tibble(Inflation_Rate_Change = factor(),
-                       Interest_Rate_Change = factor(),
-                       Engagement_Rate_Change = factor(),
+sens_results <- tibble(Inflation_Rate_Change = numeric(),
+                       Interest_Rate_Change = numeric(),
+                       Engagement_Rate_Change = numeric(),
                        T20_Profit_Count = numeric(),
-                       SWPL_Profit_Count = numeric())
+                       SPWL_Profit_Count = numeric())
 ```
 
 ```{r}
@@ -146,41 +137,54 @@ for (inflation_change in sens_levels) {
     for (engagement_change in sens_levels) {
       
       # New parameter values
-      new_inflation_rate  <- orig_inflation_rate * (1 + inflation_change)
-      new_interest_rate   <- orig_interest_rate * (1 + interest_change)
-      new_engagement_rate <- orig_engagement_rate * (1 + engagement_change)
+      new_inflation_rate  <- inflation_rate * (1 + inflation_change)
+      new_interest_rate   <- interest_rate * (1 + interest_change)
+      new_engagement_rate <- engagement_rate * (1 + engagement_change)
       
       # Updating EPVs
       T20_EPV_df_sens <- benefit_model(20, mortality_df, new_interest_rate, new_inflation_rate) %>%
         mutate(EPV_single_adj = benefit_model(20, adj_mortality_df, new_interest_rate, new_inflation_rate)$EPV_single)
       
-      SWPL_EPV_df_sens <- benefit_model(120, mortality_df, new_interest_rate, new_inflation_rate) %>%
+      SPWL_EPV_df_sens <- benefit_model(120, mortality_df, new_interest_rate, new_inflation_rate) %>%
         mutate(EPV_single_adj = benefit_model(120, adj_mortality_df, new_interest_rate, new_inflation_rate)$EPV_single)
       
-      # New intervention benefits
-      T20_intervention <- ((1 - new_engagement_rate) * T20_EPV_df_sens$EPV_single 
-                           + new_engagement_rate * T20_EPV_df_sens$EPV_single_adj) * T20_FV 
-                           + new_engagement_rate * (T20_expense_df$smoking + T20_expense_df$screening + T20_expense_df$fitness + T20_expense_df$safety)
-      
-      SWPL_intervention <- ((1 - new_engagement_rate) * SWPL_EPV_df_sens$EPV_single
-                            + new_engagement_rate * SWPL_EPV_df_sens$EPV_single_adj) * SPWL_FV 
-                            + new_engagement_rate * (SPWL_expense_df$smoking + SPWL_expense_df$screening + SPWL_expense_df$fitness + SPWL_expense_df$safety)
-      
-      # Comparing benefits
-      T20_profit_flag <- factor(ifelse(T20_intervention < benefit_df$T20_baseline, "Profit", "Loss"))
-      SWPL_profit_flag <- factor(ifelse(SWPL_intervention < benefit_df$SPWL_baseline, "Profit", "Loss"))
+      T20_expense_df_sens <- tibble(Age = T20_EPV_df_sens$age,
+                            smoking = T20_EPV_df_sens$EPV_single_50 * 2065 * 0.18,
+                            screening = T20_EPV_df_sens$EPV_annuity_due_50 * 65,
+                            fitness =  T20_EPV_df_sens$EPV_annuity_due_18 * 18,
+                            safety = T20_EPV_df_sens$EPV_annuity_due_18 * 12.5)
+
+      SPWL_expense_df_sens <- tibble(Age = SPWL_EPV_df_sens$age,
+                            smoking = SPWL_EPV_df_sens$EPV_single_50 * 2065 * 0.18,
+                            screening = SPWL_EPV_df_sens$EPV_annuity_due_50 * 65,
+                            fitness =  SPWL_EPV_df_sens$EPV_annuity_due_18 * 18,
+                            safety = SPWL_EPV_df_sens$EPV_annuity_due_18 * 12.5)
+
+      benefit_df_sens <- tibble(Age = SPWL_EPV_df_sens$age,
+                                T20_baseline_sens = T20_EPV_df_sens$EPV_single * T20_FV,
+                                T20_intervention_sens = ((1 - new_engagement_rate) * T20_EPV_df_sens$EPV_single
+                                                          + new_engagement_rate * T20_EPV_df_sens$EPV_single_adj) * T20_FV 
++ new_engagement_rate * (T20_expense_df_sens$smoking + T20_expense_df_sens$screening + T20_expense_df_sens$fitness + T20_expense_df_sens$safety),
+                                SPWL_baseline_sens = SPWL_EPV_df_sens$EPV_single * SPWL_FV,
+                                SPWL_intervention_sens = ((1 - new_engagement_rate) * SPWL_EPV_df_sens$EPV_single
+                                                          + new_engagement_rate * SPWL_EPV_df_sens$EPV_single_adj) * SPWL_FV 
++ new_engagement_rate * (SPWL_expense_df_sens$smoking + SPWL_expense_df_sens$screening + SPWL_expense_df_sens$fitness + SPWL_expense_df_sens$safety))
+     
+      benefit_df_sens <- benefit_df_sens %>%
+  mutate(T20_profit_flag = factor(ifelse(T20_intervention_sens < T20_baseline_sens, "Profit", "Loss")),
+         SPWL_profit_flag = factor(ifelse(SPWL_intervention_sens < SPWL_baseline_sens, "Profit", "Loss")))
       
       # Count profit occurrences
-      T20_profit_count <- sum(T20_profit_flag == "Profit")
-      SWPL_profit_count <- sum(SWPL_profit_flag == "Profit")
+T20_profit_count <- sum(benefit_df_sens$T20_profit_flag == "Profit")
+SPWL_profit_count <- sum(benefit_df_sens$SPWL_profit_flag == "Profit")
       
       # Append results to sensitivity results df
       sens_results <- sens_results %>%
-        add_row(Inflation_Rate_Change = inflation_change*100,
-          Interest_Rate_Change = interest_change*100,
-          Engagement_Rate_Change = engagement_change*100,
+        add_row(Inflation_Rate_Change = inflation_change,
+          Interest_Rate_Change = interest_change,
+          Engagement_Rate_Change = engagement_change,
           T20_Profit_Count = T20_profit_count,
-          SWPL_Profit_Count = SWPL_profit_count)
+          SPWL_Profit_Count = SPWL_profit_count)
     }
   }
 }
