@@ -1,4 +1,4 @@
-# *SuperLifeStyle - Apex Analytics*
+# SuperLifeStyle - Apex Analytics
 
 ***A Health Incentive Program for Life Insurance***
 
