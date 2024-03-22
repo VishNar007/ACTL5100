@@ -19,6 +19,7 @@ superlife_df <- read_csv("../Data/Processed Data/CLEANED_2024-srcsc-superlife-in
 head(superlife_df)
 summary(superlife_df)
 ```
+
 ```{r}
 max_year <- max(superlife_df$Issue.year)
 
