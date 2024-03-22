@@ -29,10 +29,6 @@ rate_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-economic-data.
 mortality_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-mortality-table.xlsx", skip = 13)
 
 adj_mortality_df <- read_excel("../Data/Processed Data/average_mortality_table.xlsx")
-
-write_csv(mortality_df, "../Data/Processed Data/mortality_baseline.csv")
-
-write_csv(adj_mortality_df, "../Data/Processed Data/mortality_adjusted.csv")
 ```
 
 
@@ -44,6 +40,10 @@ mortality_df <- mortality_df %>% mutate(survival_rate = 1 - `Mortality Rate`,
 
 adj_mortality_df <- adj_mortality_df %>% mutate(survival_rate = 1 - new_mortality,
                                         lx = cumprod(survival_rate))
+
+write_csv(mortality_df, "../Data/Processed Data/mortality_baseline.csv")
+
+write_csv(adj_mortality_df, "../Data/Processed Data/mortality_adjusted.csv")
 ```
 
 ## Create benefit modelling function
