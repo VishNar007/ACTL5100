@@ -30,6 +30,9 @@ mortality_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-mortality
 
 adj_mortality_df <- read_excel("../Data/Processed Data/average_mortality_table.xlsx")
 
+write_csv(mortality_df, "../Data/Processed Data/mortality_baseline.csv")
+
+write_csv(adj_mortality_df, "../Data/Processed Data/mortality_adjusted.csv")
 ```
 
 
