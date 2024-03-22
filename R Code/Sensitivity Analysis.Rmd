@@ -6,6 +6,10 @@ output:
   pdf_document: default
   html_document: default
 ---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, tidy=TRUE, dpi=360)
+```
+
 ```{r, message=FALSE}
 library(tidyverse)
 library(readxl)
