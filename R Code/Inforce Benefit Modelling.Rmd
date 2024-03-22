@@ -37,7 +37,6 @@ adj_mortality_df <- adj_mortality_df %>% mutate(survival_rate = 1 - new_mortalit
                                         lx = cumprod(survival_rate))
 ```
 
-```{r}
 # Misc Notes
 # For starting_age 
   # For death_age
@@ -53,7 +52,7 @@ adj_mortality_df <- adj_mortality_df %>% mutate(survival_rate = 1 - new_mortalit
 # 2. Verify tpx and q(x+t) and APV values are correct (Use debug matrix, calc manually)
 # 3. Sensitivity Analysis (Notes: Interest rates, Inflation, Mortality)
 # 4. Adjust for m-thly? Is this worth doing even
-```
+
 
 ```{r}
 benefit_model <- function(policy_duration, mortality_table, interest_rate, inflation_rate) {
@@ -192,6 +191,8 @@ benefit_df <- tibble(Age = SWPL_EPV_df$age,
                        SPWL_expense_df$safety))
 
 benefit_df <- benefit_df %>%
-  mutate(T20_profit_flag = ifelse(T20_intervention < T20_baseline, "Profit", "Loss"),
-         SWPL_profit_flag = ifelse(SWPL_intervention < SPWL_baseline, "Profit", "Loss"))
+  mutate(T20_profit_flag = factor(ifelse(T20_intervention < T20_baseline, "Profit", "Loss")),
+         SWPL_profit_flag = factor(ifelse(SWPL_intervention < SPWL_baseline, "Profit", "Loss")))
+
+write_csv(benefit_df, "../Data/Processed Data/Benefit_Modelling.csv")
 ```

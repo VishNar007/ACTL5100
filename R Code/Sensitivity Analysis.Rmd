@@ -1,0 +1,194 @@
+---
+title: "Sensitivity Analysis"
+author: "Nikhil Alex - z5451383"
+date: "2024-03-21"
+output: html_document
+---
+```{r, message=FALSE}
+library(tidyverse)
+library(readxl)
+```
+
+```{r read}
+benefit_df <- read_csv("../Data/Processed Data/Benefit_Modelling.csv")
+rate_df <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-economic-data.xlsx", skip=10)
+```
+
+```{r}
+# Original parameter values
+orig_inflation_rate <- mean(rate_df$Inflation)
+orig_interest_rate <- mean(rate_df$`1-yr Risk Free Annual Spot Rate`)
+orig_engagement_rate <- 0.25
+```
+
+```{r}
+# Benefit Model from Inforce Benefit modelling.Rmd
+
+  benefit_model <- function(policy_duration, mortality_table, interest_rate, inflation_rate) {
+
+  real_rate = ((interest_rate - inflation_rate)/(1 + inflation_rate))
+  
+  v = 1 / (1+real_rate)
+  
+  output_df <- tibble(age = 1:120, 
+                      EPV_single= rep(0, 120),
+                      EPV_annuity_due = rep(0, 120),
+                      EPV_single_18 = rep(0, 120),
+                      EPV_single_50 = rep(0, 120),
+                      EPV_annuity_due_18 = rep(0, 120),
+                      EPV_annuity_due_50 = rep(0, 120))
+  
+  #debug_mat  <- matrix(0, nrow = 120, ncol = 120)
+  
+  # Ages 1-119
+  # Note: 119 because we don't have Age 121 in life table for 120 calc.
+  for (starting_age in 1:119) {
+  
+    single = 0
+    annuity_due = 0
+    single_18 = 0
+    single_50 = 0
+    annuity_due_18 = 0
+    annuity_due_50 = 0
+    
+    # Rolling window of policy dur or capped at life table limits (truncation error?)
+    age_max <- min(starting_age + policy_duration, 119)
+    
+    for (death_age in starting_age:age_max) {
+      
+      t = death_age - starting_age
+      
+      #P(starting age is alive until death age)
+      tpx = mortality_table$lx[death_age] / mortality_table$lx[starting_age]
+      
+      #P(death age dies in the next year)
+      qxt = 1 - (mortality_table$lx[death_age+1] / mortality_table$lx[death_age])
+  
+      #debug
+      #debug_mat[starting_age, death_age] = v^(t+1) * tpx * qxt
+      
+      single = single + v^(t+1) * tpx * qxt     #Paid out EOY of Death
+      annuity_due =  annuity_due + v^(t) * tpx          #Paid out SOY of every year alive
+      
+      if (death_age >= 18) {
+        #Paid on death if older than 18
+        single_18 = single_18 + v^(t+1) * tpx * qxt
+        
+        #Paid SOY yearly starting at 18
+        annuity_due_18 = annuity_due_18 + v^(t) * tpx   
+      }
+      
+      if (death_age >= 50) {
+        #Paid SOY yearly starting at 50
+        annuity_due_50 = annuity_due_50 + v^(t) * tpx 
+      }
+
+      if (death_age == 27) {
+        #Paid at 50 if alive at 50
+        single_50 = v^(t) * tpx 
+      } else if (starting_age > 27 & starting_age <= 88) {
+        single_50 = 1
+      }
+    }
+    
+    output_df$EPV_single[starting_age] = single
+    output_df$EPV_annuity_due[starting_age] = annuity_due
+    output_df$EPV_single_18[starting_age] = single_18
+    output_df$EPV_single_50[starting_age] = single_50
+    output_df$EPV_annuity_due_18[starting_age] = annuity_due_18
+    output_df$EPV_annuity_due_50[starting_age] = annuity_due_50
+
+  } 
+  
+  return(output_df)
+}
+```
+
+```{r}
+interest_rate <- mean(rate_df$`1-yr Risk Free Annual Spot Rate`)
+inflation_rate <- mean(rate_df$Inflation)
+
+T20_EPV_df <- benefit_model(20, mortality_df, interest_rate, inflation_rate) %>%
+  mutate(EPV_single_adj = benefit_model(20, adj_mortality_df, interest_rate, inflation_rate)$EPV_single)
+
+SWPL_EPV_df <- benefit_model(120, mortality_df, interest_rate, inflation_rate) %>%
+    mutate(EPV_single_adj = benefit_model(120, adj_mortality_df, interest_rate, inflation_rate)$EPV_single)
+```
+
+```{r}
+T20_FV <- superlife_df %>%
+  filter(Policy.type == "T20") %>%
+  summarise(Mean=mean(Face.amount)) %>%
+  pull(Mean)
+
+SPWL_FV <- superlife_df %>%
+  filter(Policy.type == "SPWL") %>%
+  summarise(Mean=mean(Face.amount)) %>%
+  pull(Mean)
+
+```
+
+```{r}
+# Sensitivity levels
+sens_levels <- c(0.001, 0.01, 0.1, -0.001, -0.01, -0.1) # 0.1%, 1%, and 10% differences
+
+
+sens_results <- tibble(Inflation_Rate_Change = factor(),
+                       Interest_Rate_Change = factor(),
+                       Engagement_Rate_Change = factor(),
+                       T20_Profit_Count = numeric(),
+                       SWPL_Profit_Count = numeric())
+```
+
+```{r}
+for (inflation_change in sens_levels) {
+  for (interest_change in sens_levels) {
+    for (engagement_change in sens_levels) {
+      
+      # New parameter values
+      new_inflation_rate  <- orig_inflation_rate * (1 + inflation_change)
+      new_interest_rate   <- orig_interest_rate * (1 + interest_change)
+      new_engagement_rate <- orig_engagement_rate * (1 + engagement_change)
+      
+      # Updating EPVs
+      T20_EPV_df_sens <- benefit_model(20, mortality_df, new_interest_rate, new_inflation_rate) %>%
+        mutate(EPV_single_adj = benefit_model(20, adj_mortality_df, new_interest_rate, new_inflation_rate)$EPV_single)
+      
+      SWPL_EPV_df_sens <- benefit_model(120, mortality_df, new_interest_rate, new_inflation_rate) %>%
+        mutate(EPV_single_adj = benefit_model(120, adj_mortality_df, new_interest_rate, new_inflation_rate)$EPV_single)
+      
+      # New intervention benefits
+      T20_intervention <- ((1 - new_engagement_rate) * T20_EPV_df_sens$EPV_single 
+                           + new_engagement_rate * T20_EPV_df_sens$EPV_single_adj) * T20_FV 
+                           + new_engagement_rate * (T20_expense_df$smoking + T20_expense_df$screening + T20_expense_df$fitness + T20_expense_df$safety)
+      
+      SWPL_intervention <- ((1 - new_engagement_rate) * SWPL_EPV_df_sens$EPV_single
+                            + new_engagement_rate * SWPL_EPV_df_sens$EPV_single_adj) * SPWL_FV 
+                            + new_engagement_rate * (SPWL_expense_df$smoking + SPWL_expense_df$screening + SPWL_expense_df$fitness + SPWL_expense_df$safety)
+      
+      # Comparing benefits
+      T20_profit_flag <- factor(ifelse(T20_intervention < benefit_df$T20_baseline, "Profit", "Loss"))
+      SWPL_profit_flag <- factor(ifelse(SWPL_intervention < benefit_df$SPWL_baseline, "Profit", "Loss"))
+      
+      # Count profit occurrences
+      T20_profit_count <- sum(T20_profit_flag == "Profit")
+      SWPL_profit_count <- sum(SWPL_profit_flag == "Profit")
+      
+      # Append results to sensitivity results df
+      sens_results <- sens_results %>%
+        add_row(Inflation_Rate_Change = inflation_change*100,
+          Interest_Rate_Change = interest_change*100,
+          Engagement_Rate_Change = engagement_change*100,
+          T20_Profit_Count = T20_profit_count,
+          SWPL_Profit_Count = SWPL_profit_count)
+    }
+  }
+}
+```
+
+```{r}
+# Results
+View(sens_results)
+summary(sens_results)
+write_csv(sens_results, "../Data/Processed Data/Sensitivity_Analysis.csv")
+```
