@@ -143,7 +143,7 @@ inflation_rate <- mean(rate_df$Inflation)
 T20_EPV_df <- benefit_model(20, mortality_df, interest_rate, inflation_rate) %>%
   mutate(EPV_single_adj = benefit_model(20, adj_mortality_df, interest_rate, inflation_rate)$EPV_single)
 
-SWPL_EPV_df <- benefit_model(120, mortality_df, interest_rate, inflation_rate) %>%
+spwl_EPV_df <- benefit_model(120, mortality_df, interest_rate, inflation_rate) %>%
     mutate(EPV_single_adj = benefit_model(120, adj_mortality_df, interest_rate, inflation_rate)$EPV_single)
 ```
 
@@ -172,14 +172,14 @@ T20_expense_df <- tibble(Age = T20_EPV_df$age,
                      fitness =  T20_EPV_df$EPV_annuity_due_18 * 18,
                      safety = T20_EPV_df$EPV_annuity_due_18 * 12.5)
 
-SPWL_expense_df <- tibble(Age = SWPL_EPV_df$age,
-                     smoking = SWPL_EPV_df$EPV_single_50 * 2065 * 0.18,
-                     screening = SWPL_EPV_df$EPV_annuity_due_50 * 65,
-                     fitness =  SWPL_EPV_df$EPV_annuity_due_18 * 18,
-                     safety = SWPL_EPV_df$EPV_annuity_due_18 * 12.5)
+SPWL_expense_df <- tibble(Age = spwl_EPV_df$age,
+                     smoking = spwl_EPV_df$EPV_single_50 * 2065 * 0.18,
+                     screening = spwl_EPV_df$EPV_annuity_due_50 * 65,
+                     fitness =  spwl_EPV_df$EPV_annuity_due_18 * 18,
+                     safety = spwl_EPV_df$EPV_annuity_due_18 * 12.5)
 
 # Calculate total EPVs to compare the different programs
-benefit_df <- tibble(Age = SWPL_EPV_df$age,
+benefit_df <- tibble(Age = spwl_EPV_df$age,
                      T20_baseline = T20_EPV_df$EPV_single * T20_FV,
                      T20_intervention = ((1-engagement_rate) * T20_EPV_df$EPV_single + engagement_rate * T20_EPV_df$EPV_single_adj) * T20_FV + 
                        engagement_rate * (T20_expense_df$smoking + 
@@ -187,8 +187,8 @@ benefit_df <- tibble(Age = SWPL_EPV_df$age,
                        T20_expense_df$fitness + 
                        T20_expense_df$safety),
                      
-                     SPWL_baseline = SWPL_EPV_df$EPV_single * SPWL_FV,
-                     SWPL_intervention = ((1-engagement_rate) * SWPL_EPV_df$EPV_single + engagement_rate * SWPL_EPV_df$EPV_single_adj) * SPWL_FV + 
+                     SPWL_baseline = spwl_EPV_df$EPV_single * SPWL_FV,
+                     spwl_intervention = ((1-engagement_rate) * spwl_EPV_df$EPV_single + engagement_rate * spwl_EPV_df$EPV_single_adj) * SPWL_FV + 
                        engagement_rate * (SPWL_expense_df$smoking + 
                        SPWL_expense_df$screening + 
                        SPWL_expense_df$fitness + 
@@ -196,7 +196,7 @@ benefit_df <- tibble(Age = SWPL_EPV_df$age,
 
 benefit_df <- benefit_df %>%
   mutate(T20_profit_flag = factor(ifelse(T20_intervention < T20_baseline, "Profit", "Loss")),
-         SWPL_profit_flag = factor(ifelse(SWPL_intervention < SPWL_baseline, "Profit", "Loss")))
+         spwl_profit_flag = factor(ifelse(spwl_intervention < SPWL_baseline, "Profit", "Loss")))
 
 write_csv(benefit_df, "../Data/Processed Data/Benefit_Modelling.csv")
 ```
@@ -213,7 +213,7 @@ summary_df <- benefit_df %>%
 
 summary_df <- summary_df %>%
   group_by(Age_bracket) %>%
-  summarise(across(c(T20_baseline, T20_intervention, SPWL_baseline, SWPL_intervention), ~round(mean(.), 0)))
+  summarise(across(c(T20_baseline, T20_intervention, SPWL_baseline, spwl_intervention), ~round(mean(.), 0)))
 
 write_csv(summary_df, "../Data/Processed Data/Benefits_by_Age_Group.csv")
 ```
