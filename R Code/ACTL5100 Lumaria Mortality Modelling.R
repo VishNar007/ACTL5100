@@ -16,7 +16,7 @@ library("reshape2")
 
 
 # Read the data from a CSV file
-data <- read.csv("cleaned_superlife_policyholder.csv")
+data <- read_csv("../Data/Processed Data/CLEANED_2024-srcsc-superlife-inforce-dataset.csv")
 
 # Create a new column 'Lifespan' using the provided formula
 data$Lifespan <- data$Issue.age + (2024 - data$Issue.year)
@@ -162,7 +162,7 @@ for (age_group in names(age_group_percentages)) {
 
 
 ################## mortality modelling ########################
-mortality_table <- read.csv("lumaria_mortality.xlsx.csv")
+mortality_table <- read_excel("../Data/Case Study Data/srcsc-2024-lumaria-mortality-table.xlsx", skip = 13)
 mortality_table <- mortality_table[, 1:2]
 
 # Determine the chosen interventions
