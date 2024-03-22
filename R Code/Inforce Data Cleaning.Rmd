@@ -14,34 +14,35 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, tidy=TRUE, dpi=360, fig.widt
 library(tidyverse)
 ```
 
+## Read Data
 ```{r read}
 superlife_df <- read_csv("../Data/Case Study Data/2024-srcsc-superlife-inforce-dataset.csv", skip=3)
+
+cause_of_death_map <- read_csv("../Data/External Data/superlife_inforce_causes_of_death.csv")
+
+cause_of_death_map
+
 head(superlife_df)
 summary(superlife_df)
 ```
 
+## Clean & Transform Data
 ```{r}
 superlife_df <- superlife_df %>%
   mutate(Lapse.Indicator = ifelse(Lapse.Indicator == "Y", 1, Lapse.Indicator),
          Age.at.Death = Year.of.Death - Issue.year + Issue.age)
 ```
 
-
-
-
-```{r read}
-cause_of_death_map <- read_csv("../Data/External Data/superlife_inforce_causes_of_death.csv")
-cause_of_death_map
-```
 ```{r}
+# Join Cause of death desc. with main dataset
 superlife_df <- left_join(superlife_df, cause_of_death_map, by=c("Cause.of.Death" = "Unique.Cause.of.Death"))
-```
 
-```{r}
 superlife_df <- superlife_df %>% rename("Cause.of.Death.Description" = "Description")
 ```
 
+
 ```{r}
+# Write cleaned data
 write_csv(superlife_df, "../Data/Processed Data/CLEANED_2024-srcsc-superlife-inforce-dataset.csv")
 ```
 

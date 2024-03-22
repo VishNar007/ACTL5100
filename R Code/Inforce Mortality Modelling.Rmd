@@ -14,7 +14,8 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, tidy=TRUE, dpi=360)
 library(tidyverse)
 ```
 
-```{r read}
+## Read Data
+```{r}
 superlife_df <- read_csv("../Data/Processed Data/CLEANED_2024-srcsc-superlife-inforce-dataset.csv")
 head(superlife_df)
 summary(superlife_df)
@@ -32,7 +33,10 @@ max_obs <- nrow(superlife_df)
 superlife_df
 ```
 
+
+## Calculate Inforce Mortality
 ```{r}
+# Calculate mortality rate of inforce dataset
 mortality_df <- superlife_df %>%
   select(Max.age) %>%
   rowwise() %>%
@@ -41,7 +45,6 @@ mortality_df <- superlife_df %>%
   group_by(Age) %>%
   summarise(lx = n()) %>%
   mutate(mortality_rate = 1 - ifelse(is.na(lead(lx)), 0, (lead(lx) / lx)))
-  #mutate(mortality = 1 - (count / max_obs))
 
 mortality_df
 ```

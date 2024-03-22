@@ -19,7 +19,7 @@ superlife_df <- read_csv("../Data/Processed Data/CLEANED_2024-srcsc-superlife-in
 head(superlife_df)
 summary(superlife_df)
 ```
-
+## Misc Plots for Initial Analysis
 ```{r}
 plot_df <- superlife_df %>%
   filter(Cause.of.Death.Description != "NA") %>%
@@ -57,6 +57,8 @@ hist <- ggplot(neoplasm_df, aes(x = Age.at.Death, y = count)) +
 hist + geom_vline(xintercept = mean, color = "red", linetype = "dashed", size = 1) +
   geom_vline(xintercept = median, color = "green", linetype = "dashed", size = 1) 
 ```
+
+## Generate and write Neoplasm loading based on cancer death rates
 ```{r}
 neoplasm_df <- neoplasm_df %>%
   filter(Age.at.Death >= 50) %>%
@@ -103,12 +105,12 @@ hist + geom_vline(xintercept = mean_f, color = "orange", linetype = "dashed", si
   geom_vline(xintercept = mean_m, color = "turquoise", linetype = "dashed", size = 1) 
 ```
 ```{r}
+# Smoking rate in inforce data
 smokers <- superlife_df %>%
   filter(Smoker.Status == "S") %>%
   nrow()
 
 smokers / nrow(superlife_df)
-
 ```
 
 

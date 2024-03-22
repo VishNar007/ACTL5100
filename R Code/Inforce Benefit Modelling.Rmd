@@ -14,6 +14,7 @@ library(tidyverse)
 library(readxl)
 ```
 
+## Read Data
 ```{r}
 superlife_df <- read_csv("../Data/Processed Data/CLEANED_2024-srcsc-superlife-inforce-dataset.csv")
 ```
@@ -29,7 +30,10 @@ adj_mortality_df <- read_excel("../Data/Processed Data/average_mortality_table.x
 
 ```
 
+
+## Transform Mortality tables
 ```{r}
+# Create lx (Number of people surviving) to life tables
 mortality_df <- mortality_df %>% mutate(survival_rate = 1 - `Mortality Rate`,
                                         lx = cumprod(survival_rate))
 
@@ -37,25 +41,20 @@ adj_mortality_df <- adj_mortality_df %>% mutate(survival_rate = 1 - new_mortalit
                                         lx = cumprod(survival_rate))
 ```
 
-# Misc Notes
-# For starting_age 
-  # For death_age
-    # t = (death_age - starting_age)
-    # EPV(BENEFITS) = v^(t+1) * k_P_starting_age * Q_starting_age+t
-    # EPV(EXPENSES) = v^(t) * k_P_starting_age
-
-# kpx = Prob alive at age k+x given alive at x
-# qxk = Prob dies at age k+x+1 given alive at x+k = 1 - (Prob alive at k+x+1 given alive at x+k)
-
-# ToDo:
-# 1. Wrap into function (Inputs: Policy duration, interest rate, life table with lx values. Output: df)
-# 2. Verify tpx and q(x+t) and APV values are correct (Use debug matrix, calc manually)
-# 3. Sensitivity Analysis (Notes: Interest rates, Inflation, Mortality)
-# 4. Adjust for m-thly? Is this worth doing even
-
-
+## Create benefit modelling function
 ```{r}
 benefit_model <- function(policy_duration, mortality_table, interest_rate, inflation_rate) {
+# Function that takes generates $1 EPVs for different payment structures. Two types of EPV's are calculated, single payout - paying out $1 on death, and annuity_dues paying $1 yearly until death or artifical cap.
+# Inputs: policy_duration - (20 Years Term or 120 Years whole life)
+#         mortality_table - Table containing lx values
+#         interest_rate - interest rate to use for discounting
+#         inflation_rate - inflation rate to calculate real rate
+# Outputs: output_df$EPV_single - EPV of a insurance polcy paying out death
+#          output_df$EPV_annuity_due - EPV on an annuity paying until death
+#          output_df$EPV_single_18 - EPV of an insurance policy that starts 18+ paying $1 on death
+#          output_df$EPV_single_50 - EPV of an insurance policy that starts at 18+ up to 88
+#          output_df$EPV_annuity_due_18 - EPV of an annuity starting at 18+
+#          output_df$EPV_annuity_due_50 - EPV of an annuity starting 50+
 
   real_rate = ((interest_rate - inflation_rate)/(1 + inflation_rate))
   
@@ -68,8 +67,7 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
                       EPV_single_50 = rep(0, 120),
                       EPV_annuity_due_18 = rep(0, 120),
                       EPV_annuity_due_50 = rep(0, 120))
-  
-  #debug_mat  <- matrix(0, nrow = 120, ncol = 120)
+
   
   # Ages 1-119
   # Note: 119 because we don't have Age 121 in life table for 120 calc.
@@ -94,9 +92,6 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
       
       #P(death age dies in the next year)
       qxt = 1 - (mortality_table$lx[death_age+1] / mortality_table$lx[death_age])
-  
-      #debug
-      #debug_mat[starting_age, death_age] = v^(t+1) * tpx * qxt
       
       single = single + v^(t+1) * tpx * qxt     #Paid out EOY of Death
       annuity_due =  annuity_due + v^(t) * tpx          #Paid out SOY of every year alive
@@ -136,6 +131,7 @@ benefit_model <- function(policy_duration, mortality_table, interest_rate, infla
 ```
 
 ```{r}
+# Call benefit_model for different terms
 interest_rate <- mean(rate_df$`1-yr Risk Free Annual Spot Rate`)
 inflation_rate <- mean(rate_df$Inflation)
 
@@ -147,6 +143,7 @@ SWPL_EPV_df <- benefit_model(120, mortality_df, interest_rate, inflation_rate) %
 ```
 
 ```{r}
+# Average face values for the two policy types
 T20_FV <- superlife_df %>%
   filter(Policy.type == "T20") %>%
   summarise(Mean=mean(Face.amount)) %>%
@@ -160,9 +157,10 @@ SPWL_FV <- superlife_df %>%
 ```
 
 ```{r}
+# Engagement rate (same for all interventions)
 engagement_rate = 0.25
 
-
+# Calculate expense dataframes for the two policies
 T20_expense_df <- tibble(Age = T20_EPV_df$age,
                      smoking = T20_EPV_df$EPV_single_50 * 2065 * 0.18,
                      screening = T20_EPV_df$EPV_annuity_due_50 * 65,
@@ -175,6 +173,7 @@ SPWL_expense_df <- tibble(Age = SWPL_EPV_df$age,
                      fitness =  SWPL_EPV_df$EPV_annuity_due_18 * 18,
                      safety = SWPL_EPV_df$EPV_annuity_due_18 * 12.5)
 
+# Calculate total EPVs to compare the different programs
 benefit_df <- tibble(Age = SWPL_EPV_df$age,
                      T20_baseline = T20_EPV_df$EPV_single * T20_FV,
                      T20_intervention = ((1-engagement_rate) * T20_EPV_df$EPV_single + engagement_rate * T20_EPV_df$EPV_single_adj) * T20_FV + 
@@ -198,6 +197,7 @@ write_csv(benefit_df, "../Data/Processed Data/Benefit_Modelling.csv")
 ```
 
 ```{r}
+# Calculate benefit comparison dataframe aggregated to different age brackets
 summary_df <- benefit_df %>%
   filter(Age < 120) %>%
   mutate(Age_bracket = cut(Age, breaks = c(1, 23, 45, 60, 85, 120),
