@@ -1,4 +1,9 @@
-# ACTL5100
+# *SuperLifeStyle - Apex Analytics*
+
+***A Health Incentive Program for Life Insurance***
+
+
+Society of Actuaries - 2024 Student Research Case Study Challenge Submission
 
 
 ## File Tree:
@@ -26,7 +31,14 @@
 │       ├── Neoplasm_Mortality_Loading.csv
 │       ├── Sensitivity_Analysis.csv
 │       ├── Superlife-inforce-mortality-table.csv
-│       └── average_mortality_table.xlsx
+│       ├── average_mortality_table.xlsx
+│       ├── mortality_adjusted.csv
+│       └── mortality_baseline.csv
+├── PDFs
+│   ├── Inforce-Benefit-Modelling.pdf
+│   ├── Inforce-Data-Cleaning.pdf
+│   ├── Inforce-Data-Visualisation.pdf
+│   └── Inforce-Mortality-Modelling.pdf
 ├── R Code
 │   ├── ACTL5100 Lumaria Mortality Modelling.R
 │   ├── Inforce Benefit Modelling.Rmd
