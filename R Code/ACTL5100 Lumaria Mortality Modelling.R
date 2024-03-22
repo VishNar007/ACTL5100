@@ -173,7 +173,7 @@ chosen_interventions <- intervention_data %>%
 policyholder_mortality <- merge(policyholder_data, mortality_table, by.x = "Lifespan", by.y = "Age", all.x = TRUE)
 
 # Load neoplasms mortality loading data
-neoplasms_loading <- read.csv("Neoplasm_Mortality_Loading.csv")
+neoplasms_loading <- read.csv("../Processed Data/Case Study Data/Neoplasm_Mortality_Loading.csv")
 
 # Create a sequence of ages from 27 to 88
 age_range <- data.frame(Age.at.Death = 27:88)
